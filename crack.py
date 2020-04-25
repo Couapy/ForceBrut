@@ -1,14 +1,9 @@
 #!/bin/python3
-import argparse
+
 import hashlib
+import argparse
+import threading
 import time
-
-
-# Define characters we will use to crack passwords
-lower = 'abcdefghijklmnopqrstuvwxyz'
-upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-number = '0123456789'
-chars = lower
 
 
 # Argument parser
@@ -31,42 +26,117 @@ parser.add_argument(
 args = parser.parse_args()
 
 
-def test_password(hash, password):
-    global tests
-    tests += 1
+class Cracker(threading.Thread):
 
-    if tests % 1000000 == 0:
-        percent = int(tests / possibilities)
-        time_crack = int(time.time() - time_start)
-        print(f">> PROCESSING | {percent:3}% | {tests:20} tests | {time_crack} seconds", end="\r")
+    def __init__(self, affected_chars):
+        threading.Thread.__init__(self)
+        self.affected_chars = affected_chars
 
-    h = hashlib.sha256(str(password).encode('utf-8')).hexdigest().upper()
-    if hash == h:
-        print(f"\n[PASSWD] Password cracked : \"{password}\"")
-        time_crack = time.time() - time_start
-        print(f"[TIME] It took {time_crack} seconds.")
-        quit()
+        self.tests = 0
+        self.possibilities = len(affected_chars)
+        for i in range(2, length_max):
+            self.possibilities += len(chars)**i
 
-def force_length(hash, string, currentlength, targetlength):
-    test_password(hash, string)
-    if currentlength is targetlength:
-        return
-    for char in chars:
-        force_length(hash, string+char, currentlength+1, targetlength)
+    def run(self):
+        for c in self.affected_chars:
+            if RUN:
+                self.force_length(c, 1, length_max)
+
+    def force_length(self, string, currentlength, targetlength):
+        self.test_password(string)
+        if currentlength is targetlength:
+            return
+        if RUN:
+            for char in chars:
+                self.force_length(string+char, currentlength+1, targetlength)
+
+    def test_password(self, password):
+        global tests, RUN
+        self.tests += 1
+
+        h = hashlib.sha256(str(password).encode('utf-8')).hexdigest().upper()
+        if hash == h:
+            RUN = False
+            print(f"\n[PASSWD] Password cracked : \"{password}\"")
+            time_crack = time.time() - time_start
+            print(f"[TIME] It took {time_crack} seconds.")
+
+
+# Define characters we will use to crack passwords
+lower = 'abcdefghijklmnopqrstuvwxyz'
+upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+number = '0123456789'
+chars = lower + number
 
 
 # Get arguments
 hash = str(args.hash).encode('utf-8').decode().upper()
 length_max = args.length_max
-possibilities = 0
-for i in range(1, length_max):
-    possibilities += len(chars)**i
-print(f"There is {possibilities} possibilities to test.")
-tests = 0
-len_disp = len(str(possibilities))
+only_max_length = args.only_max_length
+
+
+# Vars
+thread_number = 12
+threads = []
+RUN = True
+
 
 # Run script
-print(f"CRACKING \"{args.hash}\" in processing...")
+possibilities = 0
+if only_max_length:
+    possibilities = len(chars)**length_max
+else:
+    for i in range(1, length_max+1):
+        possibilities += len(chars)**i
+print(f"There is {possibilities} to test.")
+print(f"TESTING \"{args.hash}\" in processing...")
+
 time_start = time.time()
-force_length(hash, '', 0, length_max)
-print(f"No occurences found for maximum length = {length_max}.")
+chars_array = list(chars)
+chars_per_array = int(len(chars) / thread_number)
+
+for i in range(thread_number):
+    if i == thread_number-1:
+        array = chars_array[chars_per_array*i:len(chars)]
+    else:
+        array = chars_array[chars_per_array*i:chars_per_array*(i+1)]
+    new_thread = Cracker(''.join(array))
+    threads.append(new_thread)
+    new_thread.start()
+
+threads_alive = True
+while threads_alive:
+    tests = 0
+    for thread in threads:
+        tests += thread.tests
+
+    percent = (tests / possibilities) * 100
+    time_diff = int(time.time() - time_start)
+    print(
+        f">> PROCESSING | {percent:3.2f}% | {tests:20} tests |" +
+        f" {time_diff} seconds",
+        end="\r"
+    )
+
+    time.sleep(1)
+    threads_alive = False
+    for thread in threads:
+        if thread.is_alive():
+            threads_alive = True
+            break
+
+for i in range(thread_number):
+    threads[i].join()
+
+if RUN:
+    print(f"\nNo occurences found for maximum length = {length_max}.")
+
+tests = 0
+for thread in threads:
+    tests += thread.tests
+percent = (tests / possibilities) * 100
+time_diff = time.time() - time_start
+print(
+    f"{possibilities} possibilities | {tests} tests | " +
+    f"{percent} percent | {time_diff:.2f} seconds"
+)

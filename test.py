@@ -8,7 +8,7 @@ import time
 
 # Argument parser
 parser = argparse.ArgumentParser(
-    description="Simple password cracker."
+    description="Simple password tester."
 )
 parser.add_argument(
     "--hash",
@@ -23,10 +23,17 @@ parser.add_argument(
     default=5,
     help="Maximum password length. Default is 5."
 )
+parser.add_argument(
+    "-t",
+    "--threads",
+    type=int,
+    default=2,
+    help="Maximum password length. Default is 5."
+)
 args = parser.parse_args()
 
 
-class Cracker(threading.Thread):
+class Tester(threading.Thread):
 
     def __init__(self, affected_chars):
         threading.Thread.__init__(self)
@@ -72,23 +79,19 @@ chars = lower + number
 # Get arguments
 hash = str(args.hash).encode('utf-8').decode().upper()
 length_max = args.length_max
-only_max_length = args.only_max_length
+thread_number = args.threads
 
 
 # Vars
-thread_number = 12
 threads = []
 RUN = True
 
 
 # Run script
 possibilities = 0
-if only_max_length:
-    possibilities = len(chars)**length_max
-else:
-    for i in range(1, length_max+1):
-        possibilities += len(chars)**i
-print(f"There is {possibilities} to test.")
+for i in range(1, length_max+1):
+    possibilities += len(chars)**i
+print(f"There is {possibilities} possibilities to test.")
 print(f"TESTING \"{args.hash}\" in processing...")
 
 time_start = time.time()
@@ -100,11 +103,13 @@ for i in range(thread_number):
         array = chars_array[chars_per_array*i:len(chars)]
     else:
         array = chars_array[chars_per_array*i:chars_per_array*(i+1)]
-    new_thread = Cracker(''.join(array))
+    new_thread = Tester(''.join(array))
     threads.append(new_thread)
     new_thread.start()
 
 threads_alive = True
+i = 0
+ETA = 0
 while threads_alive:
     tests = 0
     for thread in threads:
@@ -112,18 +117,30 @@ while threads_alive:
 
     percent = (tests / possibilities) * 100
     time_diff = int(time.time() - time_start)
+
+    i += 1
+    if i == 4:
+        i = 0
+        try:
+            current_speed = (tests / time_diff) * 60
+            ETA = int((possibilities - tests) / current_speed)
+        except Exception:
+            ETA = 0
+
     print(
-        f">> PROCESSING | {percent:3.2f}% | {tests:20} tests |" +
-        f" {time_diff} seconds",
+        ">> PROCESSING | " +
+        f"{percent:3.2f}% | " +
+        f"{tests:20} tests | " +
+        f"{time_diff} seconds| " +
+        f"ETA {ETA} minutes",
         end="\r"
     )
 
-    time.sleep(1)
+    time.sleep(0.2)
     threads_alive = False
     for thread in threads:
         if thread.is_alive():
             threads_alive = True
-            break
 
 for i in range(thread_number):
     threads[i].join()
@@ -138,5 +155,5 @@ percent = (tests / possibilities) * 100
 time_diff = time.time() - time_start
 print(
     f"{possibilities} possibilities | {tests} tests | " +
-    f"{percent} percent | {time_diff:.2f} seconds"
+    f"{percent:.2f} percent | {time_diff:.2f} seconds"
 )

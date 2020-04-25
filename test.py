@@ -77,9 +77,11 @@ def human_time_readable(minutes):
     days = hours / 24
     if days < 31:
         return f"{days:3.2f} days"
-    
     months = days / 31
-    return f"{months:3.2s} months"
+    if months < 12:
+        return f"{months:3.2f} months"
+    years = months / 12
+    return f"{years:3.2f} years"
 
 # Define characters we will use to crack passwords
 lower = 'abcdefghijklmnopqrstuvwxyz'
@@ -121,6 +123,7 @@ for i in range(thread_number):
 
 threads_alive = True
 i = 0
+current_speed = 0
 ETA = human_time_readable(0)
 while threads_alive:
     tests = 0
@@ -131,26 +134,26 @@ while threads_alive:
     time_diff = int(time.time() - time_start)
 
     i += 1
-    if i == 4:
+    if i == 2:
         i = 0
         try:
             current_speed = (tests / time_diff) * 60
-            ETA = human_time_readable(
-                int((possibilities - tests) / current_speed)
-            )
-        except Exception:
+            minutes = int((possibilities - tests) / current_speed)
+            ETA = human_time_readable(minutes)
+        except Exception as e:
             ETA = human_time_readable(0)
 
     print(
         ">> PROCESSING | " +
         f"{percent:3.2f}% | " +
         f"{tests:20} tests | " +
-        f"{time_diff} seconds| " +
+        f"{time_diff} seconds | " +
+        f"{current_speed:.0f} tests.min-1 | " +
         f"ETA {ETA}",
         end="\r"
     )
 
-    time.sleep(0.2)
+    time.sleep(0.5)
     threads_alive = False
     for thread in threads:
         if thread.is_alive():

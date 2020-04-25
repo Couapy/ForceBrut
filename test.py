@@ -68,12 +68,24 @@ class Tester(threading.Thread):
             time_crack = time.time() - time_start
             print(f"[TIME] It took {time_crack} seconds.")
 
+def human_time_readable(minutes):
+    if minutes < 60:
+        return f"{minutes} minutes"
+    hours = minutes / 60
+    if hours < 24:
+        return f"{hours:3.2f} hours"
+    days = hours / 24
+    if days < 31:
+        return f"{days:3.2f} days"
+    
+    months = days / 31
+    return f"{months:3.2s} months"
 
 # Define characters we will use to crack passwords
 lower = 'abcdefghijklmnopqrstuvwxyz'
 upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 number = '0123456789'
-chars = lower + number
+chars = lower + upper + number
 
 
 # Get arguments
@@ -109,7 +121,7 @@ for i in range(thread_number):
 
 threads_alive = True
 i = 0
-ETA = 0
+ETA = human_time_readable(0)
 while threads_alive:
     tests = 0
     for thread in threads:
@@ -123,16 +135,18 @@ while threads_alive:
         i = 0
         try:
             current_speed = (tests / time_diff) * 60
-            ETA = int((possibilities - tests) / current_speed)
+            ETA = human_time_readable(
+                int((possibilities - tests) / current_speed)
+            )
         except Exception:
-            ETA = 0
+            ETA = human_time_readable(0)
 
     print(
         ">> PROCESSING | " +
         f"{percent:3.2f}% | " +
         f"{tests:20} tests | " +
         f"{time_diff} seconds| " +
-        f"ETA {ETA} minutes",
+        f"ETA {ETA}",
         end="\r"
     )
 
